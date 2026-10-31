@@ -49,26 +49,26 @@ validate:
 		-summary < ./infrastructure/kube.yaml && \
 	printf '✅ Validation passed (not a Podman compatibility or readiness check)\n'
 
-# Run the deployment with Podman
+# Run with Podman
 play: down
-	@printf '🚀 Starting workspace in namespace: %s\n' '$(NAMESPACE)'; \
+	@printf '🚀 Starting %s\n' '$(NAMESPACE)'; \
 	podman kube play $(USERNS) ./infrastructure/kube.yaml && \
-	printf '📋 Pods in namespace: %s\n' '$(NAMESPACE)' && \
+	printf '📋 Pods for %s\n' '$(NAMESPACE)' && \
 	podman pod ls | grep $(NAMESPACE) && \
-	printf '✅ Workspace started from infrastructure/kube.yaml\n'
+	printf '✅ %s started from infrastructure/kube.yaml\n' '$(NAMESPACE)'
 
 # Stop the deployment with Podman
 down:
-	@printf '🛑 Stopping workspace from manifest: %s\n' 'infrastructure/kube.yaml'; \
+	@printf '🛑 Stopping %s from manifest: %s\n' '$(NAMESPACE)' 'infrastructure/kube.yaml'; \
 	podman kube down --force ./infrastructure/kube.yaml && \
-	printf '✅ Workspace stopped\n'
+	printf '✅ %s stopped\n' '$(NAMESPACE)'
 
-# Stop existing pods, render the chart, and start the workspace with Podman
+# Stop existing pods, render the chart, and start it with Podman
 workspace: down kube play
-	@printf '✅ Workspace is ready in namespace: %s\n' '$(NAMESPACE)'
+	@printf '✅ %s is ready\n' '$(NAMESPACE)'
 
 resources:
-	@printf '📦 Resources in namespace: %s\n' '$(NAMESPACE)'; \
+	@printf '📦 Resources for %s\n' '$(NAMESPACE)'; \
 	for resource in pod volume network; do \
 		case "$$resource" in pod) label='📦 Pods' ;; volume) label='💾 Volumes' ;; network) label='🌐 Networks' ;; esac; \
 		printf '\n%s\n' "$$label"; \
