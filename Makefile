@@ -6,19 +6,39 @@ IMAGE_PULL_POLICY?=IfNotPresent
 
 # Generate deployment from Helm Chart
 kube:
-	@podman run -i --rm -v ./infrastructure:/infrastructure:Z -w /infrastructure --entrypoint sh docker.io/alpine/helm:latest -c 'helm template $(NAMESPACE) --dry-run=client --values ./values.yaml --set-string deployments.containers.pullPolicy=$(IMAGE_PULL_POLICY) . > ./kube.yaml.tmp && mv ./kube.yaml.tmp ./kube.yaml'
+	@printf '☸️  Rendering Kubernetes manifest for namespace: %s\n' '$(NAMESPACE)'; \
+	printf '📥 Image pull policy: %s\n' '$(IMAGE_PULL_POLICY)'; \
+	podman run \
+		-i \
+		--rm \
+		-v ./infrastructure:/infrastructure:Z \
+		-w /infrastructure \
+		--entrypoint sh \
+		docker.io/alpine/helm:latest \
+		-c 'helm template $(NAMESPACE) \
+			--dry-run=client \
+			--values ./values.yaml \
+			--set-string deployments.containers.pullPolicy=$(IMAGE_PULL_POLICY) \
+			. > ./kube.yaml.tmp && mv ./kube.yaml.tmp ./kube.yaml' && \
+	printf '✅ Kubernetes manifest generated: infrastructure/kube.yaml\n'
 
 # Run the deployment with Podman
 play: down
-	@podman kube play $(USERNS) ./infrastructure/kube.yaml
-	@podman pod ls | grep $(NAMESPACE)
+	@printf '🚀 Starting workspace in namespace: %s\n' '$(NAMESPACE)'; \
+	podman kube play $(USERNS) ./infrastructure/kube.yaml && \
+	printf '📋 Pods in namespace: %s\n' '$(NAMESPACE)' && \
+	podman pod ls | grep $(NAMESPACE) && \
+	printf '✅ Workspace started from infrastructure/kube.yaml\n'
 
 # Stop the deployment with Podman
 down:
-	@podman kube down --force ./infrastructure/kube.yaml
+	@printf '🛑 Stopping workspace from manifest: %s\n' 'infrastructure/kube.yaml'; \
+	podman kube down --force ./infrastructure/kube.yaml && \
+	printf '✅ Workspace stopped\n'
 
 # Stop existing pods, render the chart, and start the workspace with Podman
 workspace: down kube play
+	@printf '✅ Workspace is ready in namespace: %s\n' '$(NAMESPACE)'
 
 resources:
 	@printf '📦 Resources in namespace: %s\n' '$(NAMESPACE)'; \
