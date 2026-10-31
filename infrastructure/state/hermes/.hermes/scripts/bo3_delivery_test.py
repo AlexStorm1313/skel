@@ -1,1 +1,0 @@
-print('✅ BO3 match alerts — Telegram test\n\nYour alert settings:\n• At least 2 filled rating stars\n• Any tournament tier\n• About 10 minutes before the scheduled start\n• Match details and available stream links\n\nThis is a test message, not a match alert.')
