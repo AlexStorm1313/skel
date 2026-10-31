@@ -143,11 +143,13 @@ naming layer. For existing Deployment templates, Podman can transform runtime
 names: confirm them through discovery rather than adding naming layers to this
 convention. This documentation example does not migrate existing templates.
 
-Run `make validate NAMESPACE="{namespace}"` from the repository root after chart
-changes, replacing the placeholder with the intended namespace. It lints and
-schema-checks a fresh render without overwriting `kube.yaml` or starting/stopping
-the stack. It does not verify naming isolation, Podman compatibility, or readiness;
-review namespace scoping and references as part of authoring.
+`make validate` is available from the repository root as an optional check, not a
+required authoring or deployment step. It lints the chart and schema-checks the
+existing `kube.yaml` without regenerating or overwriting it or starting/stopping
+the stack. If an updated manifest is wanted, `make kube NAMESPACE="{namespace}"`
+generates it; replace the namespace placeholder and preserve any older manifest
+needed for teardown. Validation does not verify naming isolation, Podman
+compatibility, or readiness; review scoping and references when authoring.
 
 Keep local secrets out of examples, generated output shared with others, and Git.
 Do not weaken root `.gitignore` rules or assume `.helmignore` alone protects

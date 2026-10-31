@@ -27,7 +27,7 @@
 | --- | --- |
 | `make` / `make kube` | Render `infrastructure/kube.yaml` using a disposable Helm container. Does not start the stack. May pull the renderer image. |
 | `make resources` | List namespace-matching pods, volumes, and networks; empty sections show `(none)`. |
-| `make validate` | Check diff whitespace, lint the chart, and schema-check a fresh render using disposable containers, without overwriting `kube.yaml` or changing stack resources. May download images and schemas; does not verify Podman compatibility or readiness. |
+| `make validate` | Lint the Helm chart and schema-check the existing `infrastructure/kube.yaml` using disposable containers. Run `make kube` first if the manifest is missing or needs updating. Does not regenerate or modify the file or change stack resources. May download tool images and schemas; does not verify Podman compatibility or readiness. |
 | `make down` | Tear down resources described by the current manifest with `podman kube down --force`. |
 | `make play` | Run `down` first, then play the existing manifest. Does **not** render it again. |
 | `make workspace` | Run teardown, render the manifest, then play it. Recreates the workspace. |
@@ -131,6 +131,9 @@ sockets are mounted, they are shared host capabilities; commands inside a contai
 may affect resources outside this stack. Do not prune resources or delete by a
 broad prefix to fix a single workspace.
 
-Use `make validate NAMESPACE="{namespace}"` before deployment. Preserve ignore
+`make validate` is available as an optional check, not a deployment requirement.
+Lint checks current chart sources and the configured image pull policy, while
+schema validation checks the existing manifest. It does not check whether the
+manifest is up to date. Preserve ignore
 rules for generated manifests and local secrets; never commit credentials or
 dump secret files as part of diagnosis.
