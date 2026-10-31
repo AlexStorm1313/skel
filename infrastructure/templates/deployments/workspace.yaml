@@ -23,78 +23,22 @@ spec:
           imagePullPolicy: {{ .Values.deployments.containers.pullPolicy }}
           command: ["/usr/sbin/sshd"]
           args: ["-D", "-e"]
-          ports:
-            - name: ssh
-              containerPort: 2222
-              hostPort: 2222
-              protocol: TCP
           env:
             - name: CONTAINER_HOST
               value: unix:///run/podman.sock
             - name: SSH_AUTH_SOCK
               value: /run/sshd.sock
           volumeMounts:
-            - name: {{ .Release.Name }}-workspace-configmaps
-              mountPath: /home/core/.gitconfig
-              subPath: .gitconfig
-              readOnly: true
-            - name: {{ .Release.Name }}-ssh
-              mountPath: /home/core/.ssh
-            - name: {{ .Release.Name }}-workspace-configmaps
-              mountPath: /etc/ssh/sshd_config
-              subPath: sshd_config
-              readOnly: true
-            - name: id_ed25519.pub
-              mountPath: /etc/ssh/id_ed25519.pub
-              readOnly: true
-            - name: authorized_keys
-              mountPath: /etc/ssh/authorized_keys
-              readOnly: true
-
-            {{ range .Values.deployments.volumes }}
-            - name: {{ . }}
-              mountPath: /home/core/{{ . }}
-            {{ end }}
-            {{ range .Values.deployments.volumeMounts }}
-            - name: {{ .name }}
-              mountPath: /home/core/{{ .name }}
-            {{ end }}
-
             - name: sshd.sock
               mountPath: /run/sshd.sock
               readOnly: true
             - name: podman.sock
               mountPath: /run/podman.sock
+            
+            - name: {{ .Release.Name }}-workspace-workspace
+              mountPath: /home/core
 
       volumes:
-        - name: {{ .Release.Name }}-workspace-configmaps
-          configMap:
-            name: {{ .Release.Name }}-workspace
-
-        - name: authorized_keys
-          hostPath:
-            path: /home/core/.ssh/authorized_keys
-            type: File
-        - name: id_ed25519.pub
-          hostPath:
-            path: /home/core/.ssh/id_ed25519.pub
-            type: File
-
-        - name: {{ .Release.Name }}-ssh
-          emptyDir: {}
-
-        {{ range .Values.deployments.volumes }}
-        - name: {{ . }}
-          persistentVolumeClaim:
-            claimName: {{ . }}
-        {{ end }}
-        {{ range .Values.deployments.volumeMounts }}
-        - name: {{ .name }}
-          hostPath:
-            path: {{ .mountPath }}
-            type: Directory
-        {{ end }}
-
         - name: podman.sock
           hostPath:
             path: /run/user/1000/podman/podman.sock
@@ -103,4 +47,7 @@ spec:
           hostPath:
             path: /run/user/1000/gcr/ssh
             type: Socket
+        - name: {{ .Release.Name }}-workspace-workspace
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-workspace-workspace
 {{ end }}
