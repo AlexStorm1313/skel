@@ -1,0 +1,20 @@
+server {
+    include /etc/nginx/includes/listen.conf;
+
+    server_name hermes.workspace.localhost hermes.workspace.alexbrasser.com;
+
+    # Do not persist session tokens from WS/download query strings.
+    access_log off;
+
+    include /etc/nginx/includes/ssl.conf;
+
+    location / {
+        include /etc/nginx/includes/proxy.conf;
+
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=5s ipv6=off;
+        resolver_timeout 2s;
+
+        set $upstream workspace-hermes-pod:9120;
+        proxy_pass http://$upstream;
+    }
+}

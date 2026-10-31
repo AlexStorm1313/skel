@@ -1,0 +1,119 @@
+{{ if .Values.services.opencode.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-opencode
+  labels:
+    app: {{ .Release.Name }}-opencode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-opencode
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-opencode
+    spec:
+      {{ include "pod.securityContext" . | indent 6 }}
+      initContainers:
+        - name: mkdir
+          {{ include "container.securityContext" . | indent 10 }}
+          image: docker.io/busybox:latest
+          command: ["/bin/mkdir"]
+          args: ["-p",
+            "/mnt/{{ .Release.Name }}-opencode-opencode/.local",
+            "/mnt/{{ .Release.Name }}-opencode-opencode/.cache",
+            "/mnt/{{ .Release.Name }}-opencode-opencode/.config",
+          ]
+          volumeMounts:
+            - name: {{ .Release.Name }}-opencode-opencode
+              mountPath: /mnt/{{ .Release.Name }}-opencode-opencode
+      containers:
+        - name: server
+          {{ include "container.securityContext" . | indent 10 }}
+          image: {{ .Values.services.opencode.image }}
+          imagePullPolicy: {{ .Values.deployments.containers.pullPolicy }}
+          command: ["tini", "--"]
+          args: ["bunx", "--bun", "opencode", "serve", "--hostname", "0.0.0.0", "--port", "3000"]
+          env:
+            - name: CONTAINER_HOST
+              value: unix:///run/podman.sock
+            - name: SSH_AUTH_SOCK
+              value: /run/sshd.sock
+            - name: OPENCODE_PASSWORD
+              value: opencode
+          volumeMounts:
+            - name: {{ .Release.Name }}-opencode-opencode
+              mountPath: /home/core/.local
+              subPath: .local
+            - name: {{ .Release.Name }}-opencode-opencode
+              mountPath: /home/core/.cache
+              subPath: .cache
+            - name: {{ .Release.Name }}-opencode-opencode
+              mountPath: /home/core/.config
+              subPath: .config
+
+            - name: {{ .Release.Name }}-workspace-configmaps
+              mountPath: /home/core/.gitconfig
+              subPath: .gitconfig
+              readOnly: true
+            - name: {{ .Release.Name }}-opencode-configmaps
+              mountPath: /home/core/.config/opencode/opencode.json
+              subPath: opencode.json
+
+            {{ range .Values.deployments.volumes }}
+            - name: {{ . }}
+              mountPath: /home/core/{{ . }}
+            {{ end }}
+            {{ range .Values.deployments.volumeMounts }}
+            - name: {{ .name }}
+              mountPath: /home/core/{{ .name }}
+            {{ end }}
+
+            - name: sshd.sock
+              mountPath: /run/sshd.sock
+              readOnly: true
+            - name: podman.sock
+              mountPath: /run/podman.sock
+
+      volumes:  
+        - name: {{ .Release.Name }}-opencode-opencode
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-opencode-opencode
+
+        - name: {{ .Release.Name }}-workspace-configmaps
+          configMap:
+            name: {{ .Release.Name }}-workspace
+            optional: true
+
+        - name: {{ .Release.Name }}-opencode-secrets
+          secret:
+            secretName: {{ .Release.Name }}-opencode
+            optional: true
+        - name: {{ .Release.Name }}-opencode-configmaps
+          configMap:
+            name: {{ .Release.Name }}-opencode
+            optional: true
+
+        {{ range .Values.deployments.volumes }}
+        - name: {{ . }}
+          persistentVolumeClaim:
+            claimName: {{ . }}
+        {{ end }}
+        {{ range .Values.deployments.volumeMounts }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .mountPath }}
+            type: Directory
+        {{ end }}
+
+        - name: podman.sock
+          hostPath:
+            path: /run/user/1000/podman/podman.sock
+            type: Socket
+        - name: sshd.sock
+          hostPath:
+            path: /run/user/1000/gcr/ssh
+            type: Socket
+{{ end }}

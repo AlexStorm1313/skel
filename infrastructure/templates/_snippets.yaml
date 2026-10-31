@@ -1,0 +1,26 @@
+{{ define "pod.securityContext" }}
+securityContext:
+  fsGroup: 0
+  fsGroupChangePolicy: "OnRootMismatch"
+  runAsGroup: 0
+  runAsNonRoot: true
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+  seLinuxOptions:
+    type: spc_t
+{{ end }}
+
+{{ define "container.securityContext" }}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  privileged: false
+  readOnlyRootFilesystem: false
+  runAsGroup: 0
+  runAsNonRoot: true  
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+{{ end }}

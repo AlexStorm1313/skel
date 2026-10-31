@@ -1,0 +1,11 @@
+{{ if .Values.services.workspace.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-workspace
+data:
+  .gitconfig: |
+{{ .Files.Get "configs/workspace/.gitconfig" | nindent 4 }}
+  sshd_config: |
+{{ .Files.Get "configs/workspace/sshd_config" | nindent 4 }}
+{{ end }}

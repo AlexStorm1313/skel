@@ -1,0 +1,127 @@
+{{ if .Values.services.codium.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-codium
+  labels:
+    app: {{ .Release.Name }}-codium
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-codium
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-codium
+    spec:
+      {{ include "pod.securityContext" . | indent 6 }}
+      initContainers:
+        - name: mkdir
+          {{ include "container.securityContext" . | indent 10 }}
+          image: docker.io/busybox:latest
+          command: ["/bin/mkdir"]
+          args: ["-p",
+            "/mnt/{{ .Release.Name }}-codium-codium/.vscode-oss",
+            "/mnt/{{ .Release.Name }}-codium-codium/.vscodium-server/data",
+            "/mnt/{{ .Release.Name }}-codium-codium/.vscodium-server/data/Machine",
+            "/mnt/{{ .Release.Name }}-codium-codium/.local",
+            "/mnt/{{ .Release.Name }}-codium-codium/.cache",
+            "/mnt/{{ .Release.Name }}-codium-codium/.ssh",
+          ]
+          volumeMounts:
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /mnt/{{ .Release.Name }}-codium-codium
+      containers:
+        - name: server
+          {{ include "container.securityContext" . | indent 10 }}
+          image: {{ .Values.services.codium.image }}
+          imagePullPolicy: {{ .Values.deployments.containers.pullPolicy }}
+          command: ["tini", "--"]
+          args: ["codium", "serve-web", "--host", "0.0.0.0", "--port", "3000", "--without-connection-token"]
+          env:
+            - name: CONTAINER_HOST
+              value: unix:///run/podman.sock
+            - name: SSH_AUTH_SOCK
+              value: /run/sshd.sock
+          volumeMounts:
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /home/core/.vscode-oss
+              subPath: .vscode-oss
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /home/core/.vscodium-server/data
+              subPath: .vscodium-server/data
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /home/core/.local
+              subPath: .local
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /home/core/.cache
+              subPath: .cache
+            - name: {{ .Release.Name }}-codium-codium
+              mountPath: /home/core/.ssh
+              subPath: .ssh
+
+            - name: {{ .Release.Name }}-workspace-configmaps
+              mountPath: /home/core/.gitconfig
+              subPath: .gitconfig
+              readOnly: true
+            - name: {{ .Release.Name }}-codium-configmaps
+              mountPath: /home/core/.vscodium-server/data/Machine/settings.json
+              subPath: settings.json
+              readOnly: true
+
+            {{ range .Values.deployments.volumes }}
+            - name: {{ . }}
+              mountPath: /home/core/{{ . }}
+            {{ end }}
+            {{ range .Values.deployments.volumeMounts }}
+            - name: {{ .name }}
+              mountPath: /home/core/{{ .name }}
+            {{ end }}
+
+            - name: sshd.sock
+              mountPath: /run/sshd.sock
+              readOnly: true
+            - name: podman.sock
+              mountPath: /run/podman.sock
+
+      volumes:
+        - name: {{ .Release.Name }}-codium-codium
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-codium-codium
+
+        - name: {{ .Release.Name }}-workspace-configmaps
+          configMap:
+            name: {{ .Release.Name }}-workspace
+            optional: true
+
+        - name: {{ .Release.Name }}-codium-secrets
+          secret:
+            secretName: {{ .Release.Name }}-codium
+            optional: true
+        - name: {{ .Release.Name }}-codium-configmaps
+          configMap:
+            name: {{ .Release.Name }}-codium
+            optional: true
+
+        {{ range .Values.deployments.volumes }}
+        - name: {{ . }}
+          persistentVolumeClaim:
+            claimName: {{ . }}
+        {{ end }}
+        {{ range .Values.deployments.volumeMounts }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .mountPath }}
+            type: Directory
+        {{ end }}
+
+        - name: sshd.sock
+          hostPath:
+            path: /run/user/1000/gcr/ssh
+            type: Socket
+        - name: podman.sock
+          hostPath:
+            path: /run/user/1000/podman/podman.sock
+            type: Socket
+{{ end }}
