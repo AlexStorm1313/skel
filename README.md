@@ -2,15 +2,14 @@
 
 **Your environment, declared.**
 
-Skel is a starter structure for deploying and managing Kubernetes resources
-supported by `podman kube`, using Helm and Kubernetes manifests. Use it as a
-foundation for a development workspace, an application stack, or infrastructure
-you want to version alongside your code.
+Skel is a starter structure for defining, deploying, and managing application
+environments with **Helm**, **Kubernetes manifests**, and **Podman**. It works with
+the Kubernetes resources supported by `podman kube`—no cluster or local Helm
+installation required.
 
-The included workflow renders manifests with Helm and runs them locally with
-**Podman**. You do not need a Kubernetes cluster or a local Helm installation.
-Skel provides the structure and workflow; you choose the workloads and how to use
-them.
+Use it for a development workspace, an application stack, or infrastructure you
+want to version alongside your code. Skel provides the structure and workflow;
+you choose the workloads.
 
 [Get started](#-getting-started) · [Commands](#-commands) ·
 [Repository structure](#-repository-structure)
@@ -28,11 +27,11 @@ Skel gives those decisions a home in your repository:
 
 - **Declare the environment.** Keep resource definitions and configuration in files
   rather than relying on remembered commands.
-- **Review infrastructure like application code.** Track changes, discuss them in
-  pull requests, and retain their history in Git.
+- **Review changes in Git.** Treat infrastructure like application code, with
+  pull requests and a shared history.
 - **Start small.** Use a Makefile, a Helm chart, and a container runtime instead of
   introducing a cluster just to run a local stack.
-- **Build your own structure.** Add the applications and dependencies you need,
+- **Make it your own.** Add the applications and dependencies you need,
   without adopting a fixed collection of services.
 - **Use familiar definitions.** Work with Kubernetes resource concepts while
   keeping runtime-specific differences explicit.
@@ -51,14 +50,15 @@ Helm templates + values.yaml
       Local Podman resources
 ```
 
-Helm runs in a disposable container and generates a manifest. Podman consumes that
-manifest through `podman kube play`. There is no installed Helm release and no
-Kubernetes control plane managing these local resources.
+Helm runs in a disposable container and renders `infrastructure/kube.yaml`.
+Podman then runs the resources through `podman kube play`. Helm is used only for
+templating: no Helm release is installed, and no Kubernetes control plane is
+involved.
 
 > [!NOTE]
 > **A skeleton, not a prebuilt stack.** The repository includes chart metadata,
 > example service values, shared security-context helpers, and lifecycle commands.
-> It does not yet include application workload templates or container build
+> It does not include application workload templates or container build
 > definitions. Enabling a service in `values.yaml` alone does not deploy it; you
 > must add its templates.
 
@@ -67,7 +67,7 @@ Kubernetes control plane managing these local resources.
 ```text
 .
 ├── Makefile                       # Rendering, validation, and Podman lifecycle
-├── containers/                    # Place your container build definitions here
+├── containers/                    # Your container build definitions
 └── infrastructure/
     ├── Chart.yaml                 # Helm chart metadata
     ├── values.yaml                # Environment configuration and service values
@@ -89,16 +89,15 @@ storage under `templates/volumes/`, and configuration resources under
 - Podman configured for your user, with support for `podman kube play`.
 - Access to the container registries used by your images and the rendering tools.
 
-The current workflow uses Linux-oriented settings, including SELinux volume
-relabeling and explicit user namespace mappings. Review those settings for your host
-and container images rather than assuming they work unchanged everywhere.
+The Makefile uses Linux-oriented settings, including SELinux volume relabeling
+and explicit user namespace mappings. Adjust them to suit your host and container
+images.
 
 ### 1. Define your environment
 
-Copy this repository as your starting point. Review `infrastructure/values.yaml`
-and replace the example images, paths, and service selections with your own.
-Local image references require images you provide; Skel does not build them for
-you.
+Start from a copy of this repository. Update `infrastructure/values.yaml` with
+your images, paths, and service selections. Build or pull any required images;
+Skel does not build them for you.
 
 Add workload templates and any corresponding volumes, ConfigMaps, or Secrets.
 Use `.Release.Name` to prefix stack-owned resource names and keep references
@@ -112,42 +111,44 @@ resource prefix and pass it consistently:
 
 ```bash
 make kube NAMESPACE=my-environment
+
+# Optional: lint the chart and validate the rendered manifest.
 make validate NAMESPACE=my-environment
 ```
 
 `make kube` generates `infrastructure/kube.yaml`; it does not start anything.
-`make validate` is optional: it lints the chart and schema-checks the existing
-manifest without regenerating it. Both commands may download tool images;
-validation may also download schemas.
+`make validate` lints the chart and schema-checks the existing manifest without
+regenerating it. Both commands may download tool images; validation may also
+download schemas.
 
 Review the generated file before deployment. Schema validation does not establish
 Podman compatibility or application readiness.
 
 ### 3. Run with Podman
 
-Once your workload templates are in place and you have reviewed the manifest:
+Run the manifest you reviewed:
 
 ```bash
-# Tears down resources from the current manifest, then plays that same file.
+# Tear down resources from the current manifest, then run that same file.
 make play NAMESPACE=my-environment
 
-# Lists resources whose names contain the prefix.
+# List resources whose names contain the prefix.
 make resources NAMESPACE=my-environment
 ```
 
-Check actual container state and logs separately:
+Then check container state and application logs:
 
 ```bash
 podman ps -a --pod
-podman logs --tail 100 <container-name>
+podman logs --tail 100 your-container-name
 ```
 
-Use the exact container name from the listing. A successful Make message does not
-mean the application is ready.
+Replace `your-container-name` with the exact name from the listing. A successful
+Make message does not mean the application is ready.
 
 ## 🧰 Commands
 
-| Command | Behavior | Lifecycle |
+| Command | What it does | Effect |
 | --- | --- | --- |
 | `make` / `make kube` | Render the manifest; do not start the stack. | 📄 Render only |
 | `make validate` | Lint the chart and schema-check the existing manifest. | 🔎 Check only |
@@ -159,6 +160,8 @@ mean the application is ready.
 Run lifecycle commands serially, not with `make -j`. Teardown requires the existing
 manifest; if it is missing, investigate before trying to recreate or remove
 resources manually.
+
+### Image pull policy
 
 `IMAGE_PULL_POLICY` defaults to `IfNotPresent`. Override it through the environment
 or a Make argument; supported values are `Always`, `IfNotPresent`, and `Never`:
@@ -173,15 +176,15 @@ make kube NAMESPACE=my-environment IMAGE_PULL_POLICY=Always
 > Despite its name, `NAMESPACE` is a **resource-name prefix**, passed as Helm's
 > release name. It is not a Kubernetes namespace or an isolation boundary.
 
-Give each deployed worktree or environment its own prefix. There is no automatic
-branch or worktree naming integration; use `make ... NAMESPACE=your-prefix`.
-An ordinary environment variable does not override the Makefile's default
-assignment; pass the prefix explicitly as a Make argument.
+Give each deployed worktree or environment a unique prefix and pass it explicitly
+as a Make argument, as in the examples above. Branch and worktree names are not
+detected automatically, and an environment variable alone does not override the
+Makefile's default assignment.
 
-Keep the prefix stable for the deployment's lifetime. Changing `NAMESPACE` on
-`play` or `down` does not change the names in the existing manifest. Do not render
-over the only manifest for a running deployment with a different prefix before
-planning its teardown.
+Keep the prefix stable for the deployment's lifetime. `play` and `down` use the
+names in the existing manifest, regardless of the `NAMESPACE` argument. Before
+rendering a different prefix into that file, plan the existing deployment's
+teardown and preserve the manifest needed for it.
 
 Distinct prefixes do not prevent host-port conflicts or isolate shared host paths,
 networks, or sockets. Coordinate those resources separately. The `resources`
@@ -189,13 +192,13 @@ command uses substring matching, so verify exact ownership before acting.
 
 ## 🔐 Configuration and secrets
 
-Edit chart sources and values, not generated `infrastructure/kube.yaml`. Keep
-credentials out of committed values and ConfigMaps. Existing ignore rules cover
-specific local secret paths and the generated manifest, not every possible
-secret file. Review new paths before committing.
-
-Generated manifests can contain sensitive data. Do not publish them or logs
-without reviewing their contents.
+- **Edit the sources.** Change chart templates and values, not the generated
+  `infrastructure/kube.yaml`.
+- **Keep credentials out of Git.** Do not put them in committed values or
+  ConfigMaps. Ignore rules cover specific local secret paths and the generated
+  manifest—not every possible secret file. Review new paths before committing.
+- **Review before sharing.** Generated manifests and logs can contain sensitive
+  data.
 
 ---
 
