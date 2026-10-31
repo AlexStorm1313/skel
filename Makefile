@@ -1,4 +1,6 @@
-.PHONY: kube play down workspace resources
+.PHONY: kube play down workspace resources validate
+
+SHELL := /bin/bash
 
 NAMESPACE=envskel-123
 USERNS=--userns=keep-id:uid=1001,gid=0
@@ -21,6 +23,37 @@ kube:
 			--set-string deployments.containers.pullPolicy=$(IMAGE_PULL_POLICY) \
 			. > ./kube.yaml.tmp && mv ./kube.yaml.tmp ./kube.yaml' && \
 	printf '✅ Kubernetes manifest generated: infrastructure/kube.yaml\n'
+
+# Lint and schema-check a fresh render without changing the deployed manifest
+validate:
+	@printf '🔎 Validating chart for namespace: %s\n' '$(NAMESPACE)'; \
+	printf '📥 Image pull policy: %s\n' '$(IMAGE_PULL_POLICY)'; \
+	case '$(IMAGE_PULL_POLICY)' in \
+		Always|IfNotPresent|Never) ;; \
+		*) printf '❌ Invalid image pull policy\n' >&2; exit 1 ;; \
+	esac; \
+	git diff --check && \
+	manifest=$$(podman run \
+		--rm \
+		-v ./infrastructure:/infrastructure:ro,Z \
+		-w /infrastructure \
+		--entrypoint sh \
+		docker.io/alpine/helm:latest \
+		-c 'helm lint . \
+			--values ./values.yaml \
+			--set-string deployments.containers.pullPolicy=$(IMAGE_PULL_POLICY) >&2 && \
+			helm template $(NAMESPACE) \
+				--dry-run=client \
+				--values ./values.yaml \
+				--set-string deployments.containers.pullPolicy=$(IMAGE_PULL_POLICY) .') && \
+	printf '📋 Checking rendered resource schemas\n' && \
+	printf '%s\n' "$$manifest" | podman run \
+		-i \
+		--rm \
+		ghcr.io/yannh/kubeconform:latest \
+		-strict \
+		-summary && \
+	printf '✅ Validation passed (not a Podman compatibility or readiness check)\n'
 
 # Run the deployment with Podman
 play: down
