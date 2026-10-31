@@ -1,17 +1,23 @@
-# Skel
+# 🦴 Skel
 
 **Your environment, declared.**
 
-Skel is a starter structure for describing application environments as code using
-Helm and Kubernetes manifests. Use it as a foundation for a development workspace,
-an application stack, or infrastructure you want to version alongside your code.
+Skel is a starter structure for deploying and managing Kubernetes resources
+supported by `podman kube`, using Helm and Kubernetes manifests. Use it as a
+foundation for a development workspace, an application stack, or infrastructure
+you want to version alongside your code.
 
 The included workflow renders manifests with Helm and runs them locally with
 **Podman**. You do not need a Kubernetes cluster or a local Helm installation.
-Skel is a template to build on, not a deployment platform or a production-ready
-stack.
+Skel provides the structure and workflow; you choose the workloads and how to use
+them.
 
-## Why it exists
+[Get started](#-getting-started) · [Commands](#-commands) ·
+[Repository structure](#-repository-structure)
+
+---
+
+## 💡 Why it exists
 
 An environment is more than a container image. It also includes configuration,
 storage, networking, dependencies, and the commands needed to bring it together.
@@ -31,7 +37,7 @@ Skel gives those decisions a home in your repository:
 - **Use familiar definitions.** Work with Kubernetes resource concepts while
   keeping runtime-specific differences explicit.
 
-## How it works
+## ⚙️ How it works
 
 ```text
 Helm templates + values.yaml
@@ -49,12 +55,14 @@ Helm runs in a disposable container and generates a manifest. Podman consumes th
 manifest through `podman kube play`. There is no installed Helm release and no
 Kubernetes control plane managing these local resources.
 
-**Current contents:** the repository includes chart metadata, example service
-values, shared security-context helpers, and lifecycle commands. It does not yet
-include application workload templates or container build definitions. Enabling a
-service in `values.yaml` alone does not deploy it; you must add its templates.
+> [!NOTE]
+> **A skeleton, not a prebuilt stack.** The repository includes chart metadata,
+> example service values, shared security-context helpers, and lifecycle commands.
+> It does not yet include application workload templates or container build
+> definitions. Enabling a service in `values.yaml` alone does not deploy it; you
+> must add its templates.
 
-## Repository structure
+## 📁 Repository structure
 
 ```text
 .
@@ -73,7 +81,7 @@ storage under `templates/volumes/`, and configuration resources under
 `templates/configmaps/`. Keep non-secret configuration files under
 `infrastructure/configs/` when needed.
 
-## Getting started
+## 🚀 Getting started
 
 ### Requirements
 
@@ -117,10 +125,6 @@ Podman compatibility or application readiness.
 
 ### 3. Run with Podman
 
-> **Destructive lifecycle:** `play`, `down`, and `workspace` use
-> `podman kube down --force`. They can remove PVC-backed volumes and application
-> data. They are not safe restart commands. Back up anything you need to retain.
-
 Once your workload templates are in place and you have reviewed the manifest:
 
 ```bash
@@ -141,16 +145,16 @@ podman logs --tail 100 <container-name>
 Use the exact container name from the listing. A successful Make message does not
 mean the application is ready.
 
-## Commands
+## 🧰 Commands
 
-| Command | Behavior |
-| --- | --- |
-| `make` / `make kube` | Render the manifest; do not start the stack. |
-| `make validate` | Lint the chart and schema-check the existing manifest. |
-| `make resources` | List prefix-matching pods, volumes, and networks. |
-| `make play` | Tear down, then run the existing manifest; do not render again. |
-| `make down` | Tear down resources described by the existing manifest. |
-| `make workspace` | Tear down, render, then run the stack. |
+| Command | Behavior | Lifecycle |
+| --- | --- | --- |
+| `make` / `make kube` | Render the manifest; do not start the stack. | 📄 Render only |
+| `make validate` | Lint the chart and schema-check the existing manifest. | 🔎 Check only |
+| `make resources` | List prefix-matching pods, volumes, and networks. | 📋 List only |
+| `make play` | Tear down, then run the existing manifest; do not render again. | ⚠️ Destructive |
+| `make down` | Tear down resources described by the existing manifest. | ⚠️ Destructive |
+| `make workspace` | Tear down, render, then run the stack. | ⚠️ Destructive |
 
 Run lifecycle commands serially, not with `make -j`. Teardown requires the existing
 manifest; if it is missing, investigate before trying to recreate or remove
@@ -163,10 +167,11 @@ or a Make argument; supported values are `Always`, `IfNotPresent`, and `Never`:
 make kube NAMESPACE=my-environment IMAGE_PULL_POLICY=Always
 ```
 
-## Multiple environments and worktrees
+## 🌳 Multiple environments and worktrees
 
-Despite its name, `NAMESPACE` is a **resource-name prefix**, passed as Helm's release
-name. It is not a Kubernetes namespace or an isolation boundary.
+> [!IMPORTANT]
+> Despite its name, `NAMESPACE` is a **resource-name prefix**, passed as Helm's
+> release name. It is not a Kubernetes namespace or an isolation boundary.
 
 Give each deployed worktree or environment its own prefix. There is no automatic
 branch or worktree naming integration; use `make ... NAMESPACE=your-prefix`.
@@ -182,24 +187,7 @@ Distinct prefixes do not prevent host-port conflicts or isolate shared host path
 networks, or sockets. Coordinate those resources separately. The `resources`
 command uses substring matching, so verify exact ownership before acting.
 
-## Development and production
-
-Skel's structure can support both development environments and application
-infrastructure, but the included execution path targets **local Podman**, not a
-production Kubernetes cluster.
-
-Kubernetes-shaped YAML is not a guarantee of identical runtime behavior. Before
-using this structure for production, provide a cluster deployment workflow and
-review storage classes, networking and ingress, secrets management, health
-checks, resource limits, access controls, backups, and upgrade/rollback behavior.
-Replace host-specific paths, local images, and Podman-specific assumptions as
-needed, and pin the application and tooling versions you depend on.
-
-The reusable part is the approach: declarative definitions, explicit
-configuration, and changes reviewed in Git—not a promise that local manifests can
-be deployed to production unchanged.
-
-## Configuration and secrets
+## 🔐 Configuration and secrets
 
 Edit chart sources and values, not generated `infrastructure/kube.yaml`. Keep
 credentials out of committed values and ConfigMaps. Existing ignore rules cover
@@ -209,6 +197,8 @@ secret file. Review new paths before committing.
 Generated manifests can contain sensitive data. Do not publish them or logs
 without reviewing their contents.
 
-## License
+---
+
+## 📜 License
 
 [MIT](LICENSE).
